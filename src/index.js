@@ -4,35 +4,43 @@ import UndoModal from './ui/UndoModal'
 import RolloverSettingTab from './ui/RolloverSettingTab'
 
 
+/* EXAMPLE FILE WITH SOME EDGE-CASES
+---
+Gewicht: 
+tags:
+- #journal 
+---
+# Journal 2021-12-23
+
+- some topic
+	- some subinfo
+	- [ ] an indented todo
+		- some info on the intended todo
+		- [ ] a sub-todo of the indented todo
+
+## TODOs
+- [ ] A todo with some content below
+	- --> [a link](https://example.com)
+	- some information
+	- [ ] a Sub-todo
+		- with a sub-content-block, that is followed by an empty line with the wrong level
+
+	- [ ] a sub-todo without a sub-content-block, followed by a line with some white space
+		
+- [ ]   A Test-Todo with a tab as separator
+- [ ] Test-Todo without extra block
+- [ ] Test-Todo at the end of the line
+This is NOT a todo in the middle, followed by an empty line
+
+This is after the empty line
+* [ ] This is also a todo, but with asterisk instead of a dash
+* --> NOT a todo [a link](https://example.com)
+* [ ] Test-Todo at the end of the file
+*/
+
+
 const MAX_TIME_SINCE_CREATION = 5000; // 5 seconds
 
-/* Just some boilerplate code for recursively going through subheadings for later
-function createRepresentationFromHeadings(headings) {
-  let i = 0;
-  const tags = [];
-
-  (function recurse(depth) {
-    let unclosedLi = false;
-    while (i < headings.length) {
-      const [hashes, data] = headings[i].split("# ");
-      if (hashes.length < depth) {
-        break;
-      } else if (hashes.length === depth) {
-        if (unclosedLi) tags.push('</li>');
-        unclosedLi = true;
-        tags.push('<li>', data);
-        i++;
-      } else {
-        tags.push('<ul>');
-        recurse(depth + 1);
-        tags.push('</ul>');
-      }
-    }
-    if (unclosedLi) tags.push('</li>');
-  })(-1);
-  return tags.join('\n');
-}
-*/
 
 export default class RolloverTodosPlugin extends Plugin {
   async loadSettings() {
@@ -81,9 +89,61 @@ export default class RolloverTodosPlugin extends Plugin {
     return sorted[1];
   }
 
+  async getAllUnfinishedTodosWithBlocks(file) {
+    const content = await this.app.vault.read(file);
+    
+    const lines = content.split("\n")
+    let curTodo = undefined
+    let curLevel = 0
+    const todos = []
+    for (let i=0; i<lines.length; i++) {
+      const line = lines[i]
+      const level = line.match(/^(\t*)/)[1].length
+      
+      const matched = line.match(/^(\t*)[-*]\s\[ \]\s.*/)
+  
+      if (curTodo) {
+        // we have a current todo and the line is inside its block OR it's just an empty line
+        // --> add it to the current todo
+        const justWhitespace = line.match(/^\s*\n?$/)
+        if (level>curLevel || justWhitespace) {
+          curTodo += line + (justWhitespace ? '' : "\n")
+          continue
+        }
+  
+        // we have a current todo and another line starts on the same level
+        // --> end the current block and decide if the line is a todo
+        if (level<=curLevel) {
+          todos.push(curTodo)
+          if (matched) {
+            curTodo = line
+            curLevel = level
+          } else {
+            curTodo = undefined
+            curLevel = 0
+          }
+          continue
+        }
+      }
+  
+      // we don't have a current todo, but the line is a todo
+      if (!curTodo && matched) {
+        curTodo = line + "\n"
+        curLevel = level
+      }
+    }
+  
+    // the last line might have contained a todo that we need to add as well
+    if (curTodo) {
+      todos.push(curTodo)
+    }
+  
+    return todos
+  }
+
   async getAllUnfinishedTodos(file) {
     const contents = await this.app.vault.read(file);
-    const unfinishedTodosRegex = /\t*- \[ \].*/g
+    const unfinishedTodosRegex = /(\t*)[-*]\s\[ \]\s.*/g;
     const unfinishedTodos = Array.from(contents.matchAll(unfinishedTodosRegex)).map(([todo]) => todo)
 
     return unfinishedTodos;
@@ -127,7 +187,7 @@ export default class RolloverTodosPlugin extends Plugin {
     if (!this.isDailyNotesEnabled()) {
       new Notice('RolloverTodosPlugin unable to rollover unfinished todos: Please enable Daily Notes, or Periodic Notes (with daily notes enabled).', 10000)
     } else {
-      const { templateHeading, deleteOnComplete, removeEmptyTodos } = this.settings;
+      const { templateHeading, deleteOnComplete, removeEmptyTodos, includeSubContent } = this.settings;
 
       // check if there is a daily note from yesterday
       const lastDailyNote = this.getLastDailyNote();
@@ -137,7 +197,9 @@ export default class RolloverTodosPlugin extends Plugin {
       //this.sortHeadersIntoHeirarchy(lastDailyNote)
 
       // get unfinished todos from yesterday, if exist
-      let todos_yesterday = await this.getAllUnfinishedTodos(lastDailyNote)
+      let todos_yesterday = includeSubContent ?
+        await this.getAllUnfinishedTodosWithBlocks(lastDailyNote) :
+        await this.getAllUnfinishedTodos(lastDailyNote);
       if (todos_yesterday.length == 0) {
         console.log(`rollover-daily-todos: 0 todos found in ${lastDailyNote.basename}.md`)
         return;

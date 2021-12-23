@@ -65,5 +65,15 @@ export default class RolloverSettingTab extends PluginSettingTab {
         })
       )
 
+    new Setting(this.containerEl)
+      .setName('Include a todos content block')
+      .setDesc(`If a todo has more content in the next lines, it will be rolled over as well`)
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.includeSubContent || false)
+        .onChange(value => {
+          this.plugin.settings.includeSubContent = value;
+          this.plugin.saveSettings();
+        })
+      )
   }
 }
