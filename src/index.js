@@ -41,7 +41,6 @@ This is after the empty line
 
 const MAX_TIME_SINCE_CREATION = 5000; // 5 seconds
 
-
 export default class RolloverTodosPlugin extends Plugin {
   async loadSettings() {
     const DEFAULT_SETTINGS = {
@@ -89,10 +88,11 @@ export default class RolloverTodosPlugin extends Plugin {
     return sorted[1];
   }
 
-  async getAllUnfinishedTodosWithBlocks(file) {
+  async handleUnfinishedTodosWithBlocks(file) {
     const content = await this.app.vault.read(file);
     
     const lines = content.split("\n")
+    let inFrontmatter = false
     let curTodo = undefined
     let curLevel = 0
     const todos = []
@@ -100,7 +100,20 @@ export default class RolloverTodosPlugin extends Plugin {
       const line = lines[i]
       const level = line.match(/^(\t*)/)[1].length
       
-      const matched = line.match(/^(\t*)[-*]\s\[ \]\s.*/)
+      const todoMatch = line.match(/^(\t*)[-*]\s\[ \]\s.*/)
+      const frontmatterMatch = line.match(/^---*.*$/)
+
+      // we skip the frontmatter for rolling over todos
+      if (i === 0 && frontmatterMatch) {
+          inFrontmatter = true
+          continue
+      }
+      if (inFrontmatter) {
+        if (frontmatterMatch) {
+          inFrontmatter = false
+        }
+        continue
+      }
   
       if (curTodo) {
         // we have a current todo and the line is inside its block OR it's just an empty line
@@ -114,9 +127,9 @@ export default class RolloverTodosPlugin extends Plugin {
         // we have a current todo and another line starts on the same level
         // --> end the current block and decide if the line is a todo
         if (level<=curLevel) {
-          todos.push(curTodo)
-          if (matched) {
-            curTodo = line
+          todos.push(curTodo.trimEnd())
+          if (todoMatch) {
+            curTodo = line + "\n"
             curLevel = level
           } else {
             curTodo = undefined
@@ -127,7 +140,7 @@ export default class RolloverTodosPlugin extends Plugin {
       }
   
       // we don't have a current todo, but the line is a todo
-      if (!curTodo && matched) {
+      if (!curTodo && todoMatch) {
         curTodo = line + "\n"
         curLevel = level
       }
@@ -198,7 +211,7 @@ export default class RolloverTodosPlugin extends Plugin {
 
       // get unfinished todos from yesterday, if exist
       let todos_yesterday = includeSubContent ?
-        await this.getAllUnfinishedTodosWithBlocks(lastDailyNote) :
+        await this.handleUnfinishedTodosWithBlocks(lastDailyNote) :
         await this.getAllUnfinishedTodos(lastDailyNote);
       if (todos_yesterday.length == 0) {
         console.log(`rollover-daily-todos: 0 todos found in ${lastDailyNote.basename}.md`)
