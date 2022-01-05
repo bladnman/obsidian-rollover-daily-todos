@@ -75,5 +75,16 @@ export default class RolloverSettingTab extends PluginSettingTab {
           this.plugin.saveSettings();
         })
       )
+
+    new Setting(this.containerEl)
+      .setName('Debug')
+      .setDesc(`Adds some debug information to the console - access via CTRL+SHIFT+i, switch to console and check the filters, if the "debug" log level is active`)
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.debug || false)
+        .onChange(value => {
+          this.plugin.settings.debug = value;
+          this.plugin.saveSettings();
+        })
+      )
   }
 }
