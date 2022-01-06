@@ -73,8 +73,8 @@ export default class RolloverTodosPlugin extends Plugin {
 
     // get all notes in directory that aren't null
     const dailyNoteFiles = this.app.vault.getAllLoadedFiles()
+      .filter(file => file.hasOwnProperty('path') && file.hasOwnProperty('basename') && file.basename != null)
       .filter(file => file.path.startsWith(folder))
-      .filter(file => file.basename != null)
 
     // remove notes that are from the future
     const todayMoment = moment()
