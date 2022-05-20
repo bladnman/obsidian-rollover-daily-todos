@@ -75,6 +75,7 @@ export default class RolloverTodosPlugin extends Plugin {
     const dailyNoteFiles = this.app.vault.getAllLoadedFiles()
       .filter(file => file.hasOwnProperty('path') && file.hasOwnProperty('basename') && file.basename != null)
       .filter(file => file.path.startsWith(folder))
+      .filter(file => file.path.endsWith('.md'))
 
     // remove notes that are from the future
     const todayMoment = moment()
@@ -85,9 +86,15 @@ export default class RolloverTodosPlugin extends Plugin {
       }
     })
 
+
+
     // sort by date
     const sorted = dailyNotesTodayOrEarlier.sort((a, b) => moment(b.basename, format).valueOf() - moment(a.basename, format).valueOf());
-    return sorted[1];
+    // return beforeToday[1];
+
+    // RETURN THE FIRST FILE BEFORE TODAY
+    const startOfToday = moment().startOf('day')
+    return sorted.find(file => moment(file.basename, format).valueOf() < startOfToday.valueOf() )
   }
 
   async handleUnfinishedTodosWithBlocks(file) {
@@ -159,9 +166,7 @@ export default class RolloverTodosPlugin extends Plugin {
   async getAllUnfinishedTodos(file) {
     const contents = await this.app.vault.read(file);
     const unfinishedTodosRegex = /(\t*)[-*]\s\[ \]\s.*/g;
-    const unfinishedTodos = Array.from(contents.matchAll(unfinishedTodosRegex)).map(([todo]) => todo)
-
-    return unfinishedTodos;
+    return Array.from(contents.matchAll(unfinishedTodosRegex)).map(([todo]) => todo)
   }
 
   async sortHeadersIntoHeirarchy(file) {
@@ -175,12 +180,19 @@ export default class RolloverTodosPlugin extends Plugin {
   }
 
   async rollover(file = undefined) {
-    this.logDebug(`Triggered on file "${file.basename}"`)
+    this.logDebug(`Triggered on file "${file?.basename}"`)
     /*** First we check if the file created is actually a valid daily note ***/
     const { folder, format } = getDailyNoteSettings()
     let ignoreCreationTime = false
 
     // Rollover can be called, but we need to get the daily file
+    /**
+     *  _______           __                   _______         __
+     * |_     _|.-----.--|  |.---.-.--.--.    |    |  |.-----.|  |_.-----.
+     *  |   |  |  _  |  _  ||  _  |  |  |    |       ||  _  ||   _|  -__|
+     * |___|  |_____|_____||___._|___  |    |__|____||_____||____|_____|
+     *                          |_____|
+     */
     if (file == undefined) {
       const allDailyNotes = getAllDailyNotes()
       file = getDailyNote(window.moment(), allDailyNotes)
@@ -219,6 +231,12 @@ export default class RolloverTodosPlugin extends Plugin {
 
     const { templateHeading, deleteOnComplete, removeEmptyTodos, includeSubContent } = this.settings;
 
+    /**
+     *  _____                __        _______         __
+     * |     |_.---.-.-----.|  |_     |    |  |.-----.|  |_.-----.
+     * |       |  _  |__ --||   _|    |       ||  _  ||   _|  -__|
+     * |_______|___._|_____||____|    |__|____||_____||____|_____|
+     */
     // check if there is a daily note from yesterday
     const lastDailyNote = this.getLastDailyNote();
     if (lastDailyNote == null) {
@@ -281,9 +299,16 @@ export default class RolloverTodosPlugin extends Plugin {
       }
       const todos_todayString = `\n${todos_today.join('\n')}`
 
+      // PREFIXED TODOS
+      let todos_todayString_prefixed = todos_todayString;
+      if (this.settings.prefix) {
+        let re = /- \[ \]/gi;
+        todos_todayString_prefixed = todos_todayString_prefixed.replace(re, `- [ ] ${this.settings.prefix}`);
+      }
+
       // If template heading is selected, try to rollover to template heading
       if (templateHeadingSelected) {
-        const contentAddedToHeading = dailyNoteContent.replace(templateHeading, `${templateHeading}${todos_todayString}`)
+        const contentAddedToHeading = dailyNoteContent.replace(templateHeading, `${templateHeading}${todos_todayString_prefixed}`)
         if (contentAddedToHeading == dailyNoteContent) {
           templateHeadingNotFoundMessage = `Rollover couldn't find '${templateHeading}' in today's daily not. Rolling todos to end of file.`
         } else {
@@ -293,7 +318,7 @@ export default class RolloverTodosPlugin extends Plugin {
 
       // Rollover to bottom of file if no heading found in file, or no heading selected
       if ((!templateHeadingSelected) || (templateHeadingNotFoundMessage.length > 0)) {
-        dailyNoteContent += todos_todayString
+        dailyNoteContent += todos_todayString_prefixed
       }
 
       await this.app.vault.modify(file, dailyNoteContent);
