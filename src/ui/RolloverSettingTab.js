@@ -89,6 +89,18 @@ export default class RolloverSettingTab extends PluginSettingTab {
             )
 
         new Setting(this.containerEl)
+            .setName('Multiple rollover prefix string')
+            .setDesc(`If an item rolls over multiple times what prefix should be used for to repeat. Example if this is set to "-" and prefix to "≫", the prefix after 3 rollovers would be "--≫". Leave this empty to only allow a single prefix.`)
+            .addText(component =>
+                component
+                    .setValue(this.plugin.settings.multiPrefix ?? null)
+                    .onChange((value) => {
+                        this.plugin.settings.multiPrefix = value
+                        this.plugin.saveData(this.plugin.settings);
+                    })
+            )
+
+        new Setting(this.containerEl)
             .setName('Debug')
             .setDesc(`Adds some debug information to the console - access via CTRL+SHIFT+i, switch to console and check the filters, if the "debug" log level is active`)
             .addToggle(toggle => toggle

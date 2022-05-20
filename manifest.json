@@ -1,10 +1,10 @@
 {
-	"id": "obsidian-rollover-daily-todos",
-	"name": "Rollover Daily Todos",
+	"id": "bladn-rollover",
+	"name": "bladn-rollover",
 	"version": "1.1.0",
 	"minAppVersion": "0.12.12",
-	"description": "This Obsidian.md plugin rolls over incomplete TODOs from the previous daily note to today's daily note. (https://obsidian.md)",
-	"author": "Matthew Sessions",
-	"authorUrl": "https://matthewsessions.com",
+	"description": "My version of the rollover tool",
+	"author": "Matt Maher",
+	"authorUrl": "https://bladnman.com",
 	"isDesktopOnly": false
 }

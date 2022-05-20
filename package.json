@@ -1,14 +1,15 @@
 {
-  "name": "obsidian-rollover-daily-todos",
+  "name": "bladn-rollover",
   "version": "1.1.0",
-  "description": "This Obsidian.md plugin rolls over incomplete TODOs from the previous daily note to today's daily note. (https://obsidian.md)",
+  "description": "My version of the rollover tool",
   "main": "main.js",
   "scripts": {
     "dev": "rollup --config rollup.config.js -w",
-    "build": "rollup --config rollup.config.js --environment BUILD:production"
+    "build": "rollup --config rollup.config.js --environment BUILD:production",
+    "copy": "cp manifest.json main.js ~/brain/.obsidian/plugins/bladn-rollover/.; echo \"files copied\""
   },
   "keywords": [],
-  "author": "Matthew Sessions",
+  "author": "Matt Maher",
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^15.1.0",

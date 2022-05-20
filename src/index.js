@@ -32,6 +32,12 @@ tags:
 - [ ] Test-Todo at the end of the line
 This is NOT a todo in the middle, followed by an empty line
 
+
+- [ ] 🛼 Item with prefix
+- [ ] --🛼 Item with 3 prefixes ("-" as multi prefix)
+- [ ] 🛼 Item with prefix
+
+
 This is after the empty line
 * [ ] This is also a todo, but with asterisk instead of a dash
 * --> NOT a todo [a link](https://example.com)
@@ -105,11 +111,15 @@ export default class RolloverTodosPlugin extends Plugin {
     let curTodo = undefined
     let curLevel = 0
     const todos = []
+    console.log("[M@] ", lines);
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
-      const level = line.match(/^(\t*)/)[1].length
+      const level = line.match(/^(( |\t)*)/)[1].length
+      // const level = line.match(/^((  |\t)*)/)[1].length
 
-      const todoMatch = line.match(/^(\t*)[-*]\s\[ \]\s.*/)
+      const todoMatch = line.match(/^( |\t*)[-*]\s\[ \]\s.*/)
+      // const todoMatch = line.match(/^((  |\t)*)[-*]\s\[ ] /)
       const frontmatterMatch = line.match(/^---*.*$/)
 
       // we skip the frontmatter for rolling over todos
@@ -165,7 +175,9 @@ export default class RolloverTodosPlugin extends Plugin {
 
   async getAllUnfinishedTodos(file) {
     const contents = await this.app.vault.read(file);
-    const unfinishedTodosRegex = /(\t*)[-*]\s\[ \]\s.*/g;
+    console.log("[M@] ", contents);
+    const unfinishedTodosRegex = /(\t*)[-*]\s\[ ]\s.*/g;
+    console.log("[M@] ", contents.matchAll(unfinishedTodosRegex));
     return Array.from(contents.matchAll(unfinishedTodosRegex)).map(([todo]) => todo)
   }
 
@@ -299,11 +311,36 @@ export default class RolloverTodosPlugin extends Plugin {
       }
       const todos_todayString = `\n${todos_today.join('\n')}`
 
+      //                     ___ __
+      //  .-----.----.-----.'  _|__|.--.--.
+      // |  _  |   _|  -__|   _|  ||_   _|
+      // |   __|__| |_____|__| |__||__.__|
+      // |__|
       // PREFIXED TODOS
       let todos_todayString_prefixed = todos_todayString;
       if (this.settings.prefix) {
-        let re = /- \[ \]/gi;
-        todos_todayString_prefixed = todos_todayString_prefixed.replace(re, `- [ ] ${this.settings.prefix}`);
+        const prefix = this.settings.prefix;
+        const multiPrefix = this.settings.multiPrefix;
+        const re_todo = new RegExp(`- \\[ \] (?!${prefix}|${multiPrefix})`, 'gi');
+        const re_single = new RegExp(`- \\[ \] ${prefix}`, 'gi');
+        const re_multi = new RegExp(`- \\[ \] ${multiPrefix}`, 'gi');
+        //                  __ __   __
+        // .--------.--.--.|  |  |_|__|
+        // |        |  |  ||  |   _|  |
+        // |__|__|__|_____||__|____|__|
+        if (this.settings.multiPrefix) {
+          // add any multi (more than 1 multi)
+          todos_todayString_prefixed = todos_todayString_prefixed.replace(re_multi, `- [ ] ${multiPrefix}${multiPrefix}`);
+          // add any single-multi (first multi)
+          todos_todayString_prefixed = todos_todayString_prefixed.replace(re_single, `- [ ] ${multiPrefix}${prefix}`);
+        }
+        // add any single
+        todos_todayString_prefixed = todos_todayString_prefixed.replace(re_todo, `- [ ] ${prefix}`);
+
+        // let re_todo = /- \[ \] /gi;
+        // let re_todo = new RegExp(`- \\[ \\] `, 'gi');
+        // let re_single_prefix_todo = /- \[ \] /gi;
+        // todos_todayString_prefixed = todos_todayString_prefixed.replace(re_todo, `- [ ] ${this.settings.prefix}`);
       }
 
       // If template heading is selected, try to rollover to template heading
